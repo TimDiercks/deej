@@ -1,11 +1,16 @@
-const int NUM_SLIDERS = 5;
-const int analogInputs[NUM_SLIDERS] = {A0, A1, A2, A3, A4};
+const int NUM_SLIDERS = 1;
+const int analogInputs[NUM_SLIDERS] = {A0};
+const int muteButtons[NUM_SLIDERS] =  {2};
 
 int analogSliderValues[NUM_SLIDERS];
+int muteButtonValues[NUM_SLIDERS];
 
 void setup() { 
   for (int i = 0; i < NUM_SLIDERS; i++) {
     pinMode(analogInputs[i], INPUT);
+  }
+  for (int i = 0; i < NUM_SLIDERS; i++) {
+    pinMode(muteButtons[i], INPUT_PULLUP);
   }
 
   Serial.begin(9600);
@@ -15,12 +20,19 @@ void loop() {
   updateSliderValues();
   sendSliderValues(); // Actually send data (all the time)
   // printSliderValues(); // For debug
-  delay(10);
+  delay(100);
 }
 
 void updateSliderValues() {
   for (int i = 0; i < NUM_SLIDERS; i++) {
      analogSliderValues[i] = analogRead(analogInputs[i]);
+  }
+  for (int i = 0; i < NUM_SLIDERS; i++) {
+    if (digitalRead(muteButtons[i]) == LOW) {
+      muteButtonValues[i] = 1;
+    } else {
+      muteButtonValues[i] = 0;
+    }
   }
 }
 
@@ -29,6 +41,8 @@ void sendSliderValues() {
 
   for (int i = 0; i < NUM_SLIDERS; i++) {
     builtString += String((int)analogSliderValues[i]);
+    builtString += ",";
+    builtString += String((int)muteButtonValues[i]);
 
     if (i < NUM_SLIDERS - 1) {
       builtString += String("|");

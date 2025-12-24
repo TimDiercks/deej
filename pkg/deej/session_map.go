@@ -253,6 +253,7 @@ func (m *sessionMap) handleSliderMoveEvent(event SliderMoveEvent) {
 						adjustmentFailed = true
 					}
 				}
+				session.SetMute(event.MuteValue)
 			}
 		}
 	}

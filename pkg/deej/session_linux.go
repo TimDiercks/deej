@@ -222,3 +222,7 @@ func parseChannelVolumes(volumes []uint32) float32 {
 
 	return float32(level) / float32(len(volumes)) / float32(maxVolume)
 }
+
+func (s *masterSession) SetMute(mute bool) error {
+	return fmt.Errorf("Not implemented for Linux")
+}

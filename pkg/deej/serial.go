@@ -32,6 +32,7 @@ type SerialIO struct {
 
 	lastKnownNumSliders        int
 	currentSliderPercentValues []float32
+	currentMuteValues          []bool
 
 	sliderMoveConsumers []chan SliderMoveEvent
 
@@ -46,9 +47,10 @@ type SerialIO struct {
 type SliderMoveEvent struct {
 	SliderID     int
 	PercentValue float32
+	MuteValue    bool
 }
 
-var expectedLinePattern = regexp.MustCompile(`^\d{1,4}(\|\d{1,4})*\r\n$`)
+var expectedLinePattern = regexp.MustCompile(`^\d{1,4},[01](\|\d{1,4},[01])*\r\n$`)
 
 // NewSerialIO creates a SerialIO instance that uses the provided deej
 // instance's connection info to establish communications with the arduino chip
@@ -204,9 +206,13 @@ func (sio *SerialIO) updateSliderCount(logger *zap.SugaredLogger, numSliders int
 		logger.Infow("Detected sliders", "amount", numSliders)
 		sio.lastKnownNumSliders = numSliders
 		sio.currentSliderPercentValues = make([]float32, numSliders)
+		sio.currentMuteValues = make([]bool, numSliders)
 
 		for idx := range sio.currentSliderPercentValues {
 			sio.currentSliderPercentValues[idx] = -1.0
+		}
+		for idx := range sio.currentMuteValues {
+			sio.currentMuteValues[idx] = true
 		}
 	}
 }
@@ -215,7 +221,14 @@ func (sio *SerialIO) processSliderValues(logger *zap.SugaredLogger, splitLine []
 	moveEvents := []SliderMoveEvent{}
 
 	for sliderIdx, stringValue := range splitLine {
-		number, _ := strconv.Atoi(stringValue)
+
+		splitted := strings.Split(stringValue, ",")
+
+		sliderStringValue := splitted[0]
+		muteStringValue := splitted[1]
+
+		number, _ := strconv.Atoi(sliderStringValue)
+		muted := muteStringValue == "0"
 
 		if sliderIdx == 0 && number > 1023 {
 			logger.Debugw("Got malformed line from serial, ignoring", "line", strings.Join(splitLine, "|"))
@@ -224,11 +237,13 @@ func (sio *SerialIO) processSliderValues(logger *zap.SugaredLogger, splitLine []
 
 		normalizedScalar := sio.calculateNormalizedValue(number)
 
-		if util.SignificantlyDifferent(sio.currentSliderPercentValues[sliderIdx], normalizedScalar, sio.deej.config.NoiseReductionLevel) {
+		if util.SignificantlyDifferent(sio.currentSliderPercentValues[sliderIdx], normalizedScalar, sio.deej.config.NoiseReductionLevel) || muted != sio.currentMuteValues[sliderIdx] {
 			sio.currentSliderPercentValues[sliderIdx] = normalizedScalar
+			sio.currentMuteValues[sliderIdx] = muted
 			moveEvents = append(moveEvents, SliderMoveEvent{
 				SliderID:     sliderIdx,
 				PercentValue: normalizedScalar,
+				MuteValue:    muted,
 			})
 
 			if sio.deej.Verbose() {
