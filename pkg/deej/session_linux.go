@@ -223,6 +223,87 @@ func parseChannelVolumes(volumes []uint32) float32 {
 	return float32(level) / float32(len(volumes)) / float32(maxVolume)
 }
 
-func (s *masterSession) SetMute(mute bool) error {
-	return fmt.Errorf("Not implemented for Linux")
+func (s *paSession) GetMute() bool {
+	request := proto.GetSinkInputInfo{
+		SinkInputIndex: s.sinkInputIndex,
+	}
+	reply := proto.GetSinkInputInfoReply{}
+
+	if err := s.client.Request(&request, &reply); err != nil {
+		s.logger.Warnw("Failed to get session mute state", "error", err)
+	}
+
+	return reply.Muted
+}
+
+func (s *paSession) SetMute(muted bool) error {
+	request := proto.SetSinkInputMute{
+		SinkInputIndex: s.sinkInputIndex,
+		Mute:           muted,
+	}
+
+	if err := s.client.Request(&request, nil); err != nil {
+		s.logger.Warnw("Failed to set session mute state", "error", err)
+		return fmt.Errorf("set session mute state: %w", err)
+	}
+
+	s.logger.Debugw("Setting session mute state", "muted", muted)
+
+	return nil
+}
+
+func (s *masterSession) GetMute() bool {
+	if s.isOutput {
+		request := proto.GetSinkInfo{
+			SinkIndex: s.streamIndex,
+		}
+		reply := proto.GetSinkInfoReply{}
+
+		if err := s.client.Request(&request, &reply); err != nil {
+			s.logger.Warnw("Failed to get session mute state", "error", err)
+			return false
+		}
+
+		return reply.Mute
+	}
+
+	request := proto.GetSourceInfo{
+		SourceIndex: s.streamIndex,
+	}
+	reply := proto.GetSourceInfoReply{}
+
+	if err := s.client.Request(&request, &reply); err != nil {
+		s.logger.Warnw("Failed to get session mute state", "error", err)
+		return false
+	}
+
+	return reply.Mute
+}
+
+func (s *masterSession) SetMute(muted bool) error {
+	var request proto.RequestArgs
+
+	if s.isOutput {
+		request = &proto.SetSinkMute{
+			SinkIndex: s.streamIndex,
+			Mute:      muted,
+		}
+	} else {
+		request = &proto.SetSourceMute{
+			SourceIndex: s.streamIndex,
+			Mute:        muted,
+		}
+	}
+
+	if err := s.client.Request(request, nil); err != nil {
+		s.logger.Warnw("Failed to set session mute state",
+			"error", err,
+			"muted", muted)
+
+		return fmt.Errorf("set session mute state: %w", err)
+	}
+
+	s.logger.Debugw("Setting session mute state", "muted", muted)
+
+	return nil
 }

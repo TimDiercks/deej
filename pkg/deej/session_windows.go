@@ -188,13 +188,7 @@ func (s *masterSession) SetMute(mute bool) error {
 		s.logger.Warnw("Session expired because default device has changed, triggering session refresh")
 		return errRefreshSessions
 	}
-	var isMute bool
-	if err := s.volume.GetMute(&isMute); err != nil {
-		s.logger.Warnw("Failed to get session mute",
-			"error", err)
-
-		return fmt.Errorf("get session mute: %w", err)
-	}
+	isMute := s.GetMute()
 
 	if isMute == mute {
 		return nil
@@ -214,13 +208,7 @@ func (s *masterSession) SetMute(mute bool) error {
 }
 
 func (s *wcaSession) SetMute(mute bool) error {
-	var isMute bool
-	if err := s.volume.GetMute(&isMute); err != nil {
-		s.logger.Warnw("Failed to get session mute",
-			"error", err)
-
-		return fmt.Errorf("get session mute: %w", err)
-	}
+	isMute := s.GetMute()
 
 	if isMute == mute {
 		return nil
@@ -237,6 +225,28 @@ func (s *wcaSession) SetMute(mute bool) error {
 	s.logger.Debugw("Setting session mute", "to", fmt.Sprintf("%v", mute))
 
 	return nil
+}
+
+func (s *wcaSession) GetMute() bool {
+	var isMute bool
+	if err := s.volume.GetMute(&isMute); err != nil {
+		s.logger.Warnw("Failed to get session mute",
+			"error", err)
+
+		return false
+	}
+	return isMute
+}
+
+func (s *masterSession) GetMute() bool {
+	var isMute bool
+	if err := s.volume.GetMute(&isMute); err != nil {
+		s.logger.Warnw("Failed to get session mute",
+			"error", err)
+
+		return false
+	}
+	return isMute
 }
 
 func (s *masterSession) Release() {
